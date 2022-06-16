@@ -111,8 +111,8 @@ int main()
     if (line[4] != L' ' || line[5] != L'=' || line[6] != L' ')
       continue;
 
-    const int linelen = wcslen(line);
-    int len = linelen - 8 + (line[linelen - 1] != '\n');
+    const size_t linelen = wcslen(line);
+    size_t len = linelen - 8 + (line[linelen - 1] != '\n');
 
     if (line[0] == L'p' && line[1] == L'a' && line[2] == L't' && line[3] == L'h') {
       // Checking if path contains a space
