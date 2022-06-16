@@ -2,7 +2,7 @@ name: Release
 
 on:
   schedule:
-    - cron: "0 0 * * 0" # weekly
+    - cron: '0 0 * * 0' # weekly
   workflow_dispatch:
   push:
     tags:
@@ -26,7 +26,6 @@ jobs:
             zip
             ninja
       - uses: actions/checkout@v2
-
       - name: Get latest release
         continue-on-error: true
         id: cur_release
@@ -47,7 +46,7 @@ jobs:
           echo "prerelease=$prerelease" >> $GITHUB_ENV
 
       - name: Build
-        run: ninja -C build
+        run: make
 
       - name: Create release
         uses: ncipollo/release-action@v1
@@ -57,6 +56,6 @@ jobs:
           draft: false
           prerelease: ${{ env.prerelease }}
           artifactErrorsFailBuild: true
-          artifacts: build/shimexe.zip
+          artifacts: \#build/shimexe.zip
           artifactContentType: application/zip
           token: ${{ secrets.GITHUB_TOKEN }}

@@ -16,4 +16,4 @@ jobs:
       - uses: seanmiddleditch/gha-setup-ninja@master
 
       - name: Build
-        run: ninja -C build shim.exe
+        run: make
