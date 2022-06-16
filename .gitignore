@@ -1,3 +1,16 @@
-.vscode/
-*.exe
-*.obj
+# NOTE: GLOBSTAR syntax [see `git help gitignore`]
+# * ref: [.gitignore] http://git-scm.com/docs/gitignore @@ http://archive.is/Rk6rO
+
+# ignore build artifacts
+[._#]build
+dist
+target
+
+# ignore coverage data
+[._#]coverage
+.nyc_output
+
+# ignore JS package-related files
+node_modules
+package-lock.json
+yarn.lock
