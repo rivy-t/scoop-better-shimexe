@@ -1,7 +1,7 @@
-#include <corecrt_wstdio.h>
 #pragma comment(lib, "SHELL32.LIB")
 #pragma comment(lib, "SHLWAPI.LIB")
 #include <windows.h>
+#include <shellapi.h>
 #include <shlwapi.h>
 #include <stdio.h>
 
@@ -189,8 +189,12 @@ std::tuple<std::unique_handle, std::unique_handle> MakeProcess(const std::wstrin
     return {std::move(processHandle), std::move(threadHandle)};
 }
 
-int wmain(int argc, wchar_t* argv[])
+int main(int _argc, char* _argv[])
 {
+    int argc;
+    auto cmd = GetCommandLineW();
+    auto argv = CommandLineToArgvW(cmd, &argc);
+
     auto [path, args] = GetShimInfo();
 
     if (!path)
@@ -204,7 +208,6 @@ int wmain(int argc, wchar_t* argv[])
         args.emplace();
     }
 
-    auto cmd = GetCommandLineW();
     if (cmd[0] == L'\"')
     {
         args->append(cmd + wcslen(argv[0]) + 2);
