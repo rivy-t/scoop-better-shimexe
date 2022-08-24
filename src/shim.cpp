@@ -1,5 +1,3 @@
-#pragma comment(lib, "SHELL32.LIB")
-#pragma comment(lib, "SHLWAPI.LIB")
 #include <windows.h>
 #include <shellapi.h>
 #include <shlwapi.h>
@@ -37,7 +35,7 @@ BOOL WINAPI CtrlHandler(DWORD ctrlType)
 struct HandleDeleter
 {
     typedef HANDLE pointer;
-    void operator() (HANDLE handle)
+    void operator()(HANDLE handle)
     {
         if (handle)
         {
@@ -46,11 +44,10 @@ struct HandleDeleter
     }
 };
 
-namespace std
-{
-    typedef unique_ptr<HANDLE, HandleDeleter> unique_handle;
-    typedef optional<wstring> wstring_p;
-}
+namespace std {
+typedef unique_ptr<HANDLE, HandleDeleter> unique_handle;
+typedef optional<wstring> wstring_p;
+} // namespace std
 
 std::tuple<std::wstring_p, std::wstring_p> GetShimInfo()
 {
@@ -78,7 +75,7 @@ std::tuple<std::wstring_p, std::wstring_p> GetShimInfo()
     std::unique_ptr<FILE, decltype(&fclose)> shimFile(fp, &fclose);
 
     // Read shim
-    wchar_t linebuf[1<<14];
+    wchar_t linebuf[1 << 14];
     std::wstring_p path;
     std::wstring_p args;
     while (true)
@@ -109,7 +106,7 @@ std::tuple<std::wstring_p, std::wstring_p> GetShimInfo()
             {
                 path.emplace(line_substr.data(), line_substr.size() - (line.back() == L'\n' ? 1 : 0));
             }
-            
+
             continue;
         }
 
