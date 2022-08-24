@@ -1,4 +1,4 @@
-# Makefile (C/C++; OOS-build support; gmake-form/style; v2022.01.09)
+# Makefile (C/C++; OOS-build support; gmake-form/style; v2022.08.24)
 # Cross-platform (bash/sh + CMD/PowerShell)
 # `bcc32`, `cl`, `clang`, `embcc32`, and `gcc` (defaults to `CC=clang`)
 # * supports multi-binary projects; adapts to project structure
@@ -30,7 +30,7 @@ NAME := $()## $()/empty/null => autoset to name of containing folder
 # spell-checker:ignore (abbrev/acronyms) LCID LCIDs LLVM MSVC MinGW POSIX VCvars
 # spell-checker:ignore (jargon) autoset deps depfile depfiles delims executables maint multilib
 # spell-checker:ignore (libraries) advapi crtl libcmt libgcc libstdc lmsvcrt lstdc stdext wsock
-# spell-checker:ignore (names) benhoyt rivy Borland Watcom
+# spell-checker:ignore (names) benhoyt rivy Borland Deno Watcom
 # spell-checker:ignore (shell/nix) mkdir printf rmdir uname
 # spell-checker:ignore (shell/win) COMSPEC SystemDrive SystemRoot findstr findstring mkdir windir
 # spell-checker:ignore (utils) goawk ilink windres
@@ -38,12 +38,13 @@ NAME := $()## $()/empty/null => autoset to name of containing folder
 
 ####
 
+-include $(lastword ${MAKEFILE_LIST}).config## include sibling configuration file, if exists (easier project config with a stable base Makefile)
+
+# most commonly variant configuration variables
 SRC_PATH := $()## path to source relative to makefile (defaults to first of ['src','source']); used to create ${SRC_DIR} which is then used as the source base directory path
-
 DEPS = $()## manually-configured common/shared dependencies; note: use delayed expansion (`=`, not `:=`) if referencing a later defined variable (eg, `{SRC_DIR}/defines.h`)
-LIBS := $()## list of any additional required libraries (space-separated); alternatively, use `#pragma comment(lib, "LIBRARY_NAME")`
+LIBS := shell32 shlwapi $()## list of any additional required libraries (space-separated); alternatively, use `#pragma comment(lib, "LIBRARY_NAME")`
 RES := $()## list of any additional required resources (space-separated)
-
 BUILD_PATH := $()## path to build storage relative to makefile (defaults to '#build'); used to create ${BUILD_DIR} which is then used as the base path for build outputs
 
 ####
@@ -144,7 +145,7 @@ CFLAGS_VERBOSE_true := -v
 CFLAGS_check := -v
 CFLAGS_machine := -dumpmachine
 CFLAGS_v := --version
-CPPFLAGS := -std=c++17
+CPPFLAGS := $()
 ## see <https://stackoverflow.com/questions/42545078/clang-version-5-and-lnk4217-warning/42752769#42752769>@@<https://archive.is/bK4Di>
 ## see <http://clang-developers.42468.n3.nabble.com/MinGW-Clang-issues-with-static-libstdc-td4056214.html>
 ## see <https://clang.llvm.org/docs/LTOVisibility.html>
@@ -248,7 +249,7 @@ CFLAGS_DEBUG_false_STATIC_false := /MD ## release + dynamic
 CFLAGS_DEBUG_true_STATIC_true := /MTd ## debug + static
 CFLAGS_DEBUG_false_STATIC_true := /MT ## release + static
 CFLAGS_VERBOSE_true := $()
-CPPFLAGS := /std:c++17
+CPPFLAGS := $()
 CXXFLAGS := $()
 LDFLAGS := /nologo /incremental:no
 LDFLAGS_ARCH_32 := /machine:I386
@@ -403,9 +404,13 @@ SPACE := $() $()
 %_position_ = $(if $(findstring ${1},${2}),$(call %_position_,${1},$(wordlist 2,$(words ${2}),${2}),_ ${3}),${3})
 %position = $(words $(call %_position_,${1},${2}))
 
-%map = $(foreach elem,${2},$(call ${1},${elem}))
-%filter_by = $(strip $(foreach elem,${3},$(and $(filter $(call ${1},${2}),$(call ${1},${elem})),${elem})))
+%map = $(foreach elem,${2},$(call ${1},${elem}))# %map(fn,list) == [ fn(list[N]),... ]
+%filter_by = $(strip $(foreach elem,${3},$(and $(filter $(call ${1},${2}),$(call ${1},${elem})),${elem})))# %filter_by(fn,item,list) == [ list[N] iff fn(item)==fn(list[N]), ... ]
 %uniq = $(if ${1},$(firstword ${1}) $(call %uniq,$(filter-out $(firstword ${1}),${1})))
+
+%cross = $(foreach a,${2},$(foreach b,${3},$(call ${1},${a},${b})))# %cross(fn,listA,listB) == [ fn(listA[N],listB[M]), ... {for all combinations of listA and listB }]
+%join = $(subst ${SPACE},${1},$(strip ${2}))# %join(text,list) == join all list elements with text
+%replace = $(foreach elem,${3},$(foreach pat,${1},${elem:${pat}=${2}}))# %replace(pattern(s),replacement,list) == [ ${list[N]:pattern[M]=replacement}, ... ]
 
 %tr = $(strip $(if ${1},$(call %tr,$(wordlist 2,$(words ${1}),${1}),$(wordlist 2,$(words ${2}),${2}),$(subst $(firstword ${1}),$(firstword ${2}),${3})),${3}))
 %lc = $(call %tr,${[upper]},${[lower]},${1})
@@ -668,10 +673,28 @@ $(call %debug_var,current_dir)
 
 ####
 
+# discover NAME
 NAME := $(strip ${NAME})
 ifeq (${NAME},)
-override NAME := $(notdir ${makefile_dir})
+# * generate a default NAME from Makefile project path
+working_NAME := $(notdir ${makefile_dir})
+## remove any generic repo and/or category tag prefix
+tags_repo := repo.GH repo.GL repo.github repo.gitlab repo
+tags_category := cxx deno djs js-cli js-user js rs rust ts sh
+tags_combined := $(call %cross,$(eval %f=$${1}${DOT}$${2})%f,${tags_repo},${tags_category}) ${tags_repo} ${tags_category}
+tag_patterns := $(call %map,$(eval %f=$${1}${DOT}% $${1})%f,${tags_combined})
+# $(call %debug_var,tags_combined)
+# $(call %debug_var,tag_patterns)
+clipped_NAMEs := $(strip $(filter-out ${working_NAME},$(call %replace,${tag_patterns},%,$(filter-out ${tags_repo},${working_NAME}))))
+# $(call %debug_var,clipped_NAMEs)
+working_NAME := $(firstword $(filter-out ${tags_repo},${clipped_NAMEs} ${working_NAME}))
+ifeq (${working_NAME},)
+working_NAME := $(notdir $(abspath $(dir ${makefile_dir})))
 endif
+override NAME := ${working_NAME}
+endif
+$(call %debug_var,working_NAME)
+$(call %debug_var,NAME)
 
 ####
 
@@ -726,7 +749,7 @@ s := $(call %tr,$(filter-out ${SLASH} ${BACKSLASH} ${DOT} _ - +,${[punct]}),$(),
 # filter_map ${DOT}-containing words
 %f = $(and $(findstring ${DOT},${1}),${1})
 s := $(strip $(call %map,%f,${s}))
-$(call %debug_var,s)
+# $(call %debug_var,s)
 # filter_map all words with leading digits
 %f = $(and $(findstring ${ESC}_,${ESC}$(call %tr,${[digit]} ${ESC},$(call %repeat,_,$(words ${[digit]})),${1})),${1})
 s := $(strip $(call %map,%f,${s}))
@@ -892,6 +915,9 @@ $(call %debug_var,OUT_DIR)
 $(call %debug_var,OUT_DIR_bin)
 $(call %debug_var,OUT_DIR_obj)
 
+# binaries (within first of ['src/bin','src/bins'] directories)
+## * each source file will be compiled to a single target executable within the 'bin' output directory
+
 BIN_DIR := $(firstword $(wildcard $(foreach segment,bin bins,${SRC_DIR}/${segment})))
 BIN_DIR_filename := $(notdir ${BIN_DIR})
 BIN_OUT_DIR_bin := $(and ${BIN_DIR},${OUT_DIR_bin})
@@ -950,9 +976,12 @@ $(call %debug_var,DEPS)
 $(call %debug_var,DEPS_common)
 $(call %debug_var,DEPS_target)
 
+# examples (within first of ['eg','egs','ex', 'exs', 'example', 'examples'] directories)
+## * each source file will be compiled to a single target executable within the (same-named) examples output directory
+
 EG_DIR := $(firstword $(wildcard $(foreach segment,eg egs ex exs example examples,${BASEPATH}${segment})))
 EG_DIR_filename := $(notdir ${EG_DIR})
-EG_OUT_DIR_bin := $(and ${EG_DIR},${OUT_DIR}/${EG_DIR})
+EG_OUT_DIR_bin := $(and ${EG_DIR},${OUT_DIR}/${EG_DIR:${BASEPATH}%=%})
 EG_OUT_DIR_obj := $(and ${EG_DIR},${OUT_DIR_obj}.${EG_DIR_filename})
 EG_SRC_files := $(and ${EG_DIR},$(wildcard ${EG_DIR}/*.c ${EG_DIR}/*.cpp ${EG_DIR}/*.cxx))
 EG_SRC_sup_files := $(and ${EG_DIR},$(call %recursive_wildcard,$(patsubst %/,%,$(call %dirs,${EG_DIR})),*.c *.cpp *.cxx))
@@ -975,9 +1004,12 @@ $(call %debug_var,EG_bin_files)
 $(call %debug_var,EG_RES_files)
 $(call %debug_var,EG_REZ_files)
 
+# tests (within first of ['t','test','tests'] directories)
+## * each source file will be compiled to a single target executable within the (same-named) test output directory
+
 TEST_DIR := $(firstword $(wildcard $(foreach segment,t test tests,${BASEPATH}${segment})))
 TEST_DIR_filename := $(notdir ${TEST_DIR})
-TEST_OUT_DIR_bin := $(and ${TEST_DIR},${OUT_DIR}/${TEST_DIR})
+TEST_OUT_DIR_bin := $(and ${TEST_DIR},${OUT_DIR}/${TEST_DIR:${BASEPATH}%=%})
 TEST_OUT_DIR_obj := $(and ${TEST_DIR},${OUT_DIR_obj}.$(notdir ${TEST_DIR}))
 TEST_SRC_files := $(and ${TEST_DIR},$(wildcard ${TEST_DIR}/*.c ${TEST_DIR}/*.cpp ${TEST_DIR}/*.cxx))
 TEST_SRC_sup_files := $(and ${TEST_DIR},$(call %recursive_wildcard,$(patsubst %/,%,$(call %dirs_in,${TEST_DIR})),*.c *.cpp *.cxx))
