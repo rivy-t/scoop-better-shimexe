@@ -1,6 +1,8 @@
 #include <windows.h>
+
 #include <shellapi.h>
 #include <shlwapi.h>
+
 #include <stdio.h>
 
 #include <string>
