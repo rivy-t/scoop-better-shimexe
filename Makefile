@@ -1,4 +1,4 @@
-# Makefile (C/C++; OOS-build support; gmake-form/style; v2022.08.24)
+# Makefile (C/C++; OOS-build support; gmake-form/style; v2022.08.27)
 # Cross-platform (bash/sh + CMD/PowerShell)
 # `bcc32`, `cl`, `clang`, `embcc32`, and `gcc` (defaults to `CC=clang`)
 # * supports multi-binary projects; adapts to project structure
@@ -17,8 +17,6 @@
 
 # `make [ARCH=32|64] [CC=..] [CC_DEFINES=<truthy>] [COLOR=<truthy>] [DEBUG=<truthy>] [STATIC=<truthy>] [TARGET=..] [VERBOSE=<truthy>] [MAKEFLAGS_debug=<truthy>] [MAKE_TARGET...]`
 
-NAME := $()## $()/empty/null => autoset to name of containing folder
-
 ####
 
 # spell-checker:ignore (project)
@@ -27,7 +25,7 @@ NAME := $()## $()/empty/null => autoset to name of containing folder
 # spell-checker:ignore (make) BASEPATH CURDIR MAKECMDGOALS MAKEFLAGS SHELLSTATUS TERMERR TERMOUT abspath addprefix addsuffix endef eval findstring firstword gmake ifeq ifneq lastword notdir patsubst prepend undefine wordlist
 #
 # spell-checker:ignore (CC) DDEBUG DNDEBUG NDEBUG Ofast Werror Wextra Xclang Xlinker bcc dumpmachine embcc flto flto-visibility-public-std fpie msdosdjgpp nodefaultlib nologo nothrow psdk
-# spell-checker:ignore (abbrev/acronyms) LCID LCIDs LLVM MSVC MinGW POSIX VCvars
+# spell-checker:ignore (abbrev/acronyms) LCID LCIDs LLVM MSVC MinGW MSDOS POSIX VCvars
 # spell-checker:ignore (jargon) autoset deps depfile depfiles delims executables maint multilib
 # spell-checker:ignore (libraries) advapi crtl libcmt libgcc libstdc lmsvcrt lstdc stdext wsock
 # spell-checker:ignore (names) benhoyt rivy Borland Deno Watcom
@@ -38,14 +36,19 @@ NAME := $()## $()/empty/null => autoset to name of containing folder
 
 ####
 
--include $(lastword ${MAKEFILE_LIST}).config## include sibling configuration file, if exists (easier project config with a stable base Makefile)
+NAME := $()## $()/empty/null => autoset to name of containing folder
 
-# most commonly variant configuration variables
 SRC_PATH := $()## path to source relative to makefile (defaults to first of ['src','source']); used to create ${SRC_DIR} which is then used as the source base directory path
-DEPS = $()## manually-configured common/shared dependencies; note: use delayed expansion (`=`, not `:=`) if referencing a later defined variable (eg, `{SRC_DIR}/defines.h`)
-LIBS := shell32 shlwapi $()## list of any additional required libraries (space-separated); alternatively, use `#pragma comment(lib, "LIBRARY_NAME")`
-RES := $()## list of any additional required resources (space-separated)
 BUILD_PATH := $()## path to build storage relative to makefile (defaults to '#build'); used to create ${BUILD_DIR} which is then used as the base path for build outputs
+
+DEPS = $()## list of any additional required (common/shared) dependencies (space-separated); note: use delayed expansion (`=`, not `:=`) if referencing a later defined variable (eg, `{SRC_DIR}/defines.h`)
+LIBS := $()## list of any additional required (common/shared) libraries (space-separated); alternatively, *if not using `gcc`*, `#pragma comment(lib, "LIBRARY_NAME")` within code; ref: [`gcc` pragma library?](https://stackoverflow.com/questions/1685206)@@<https://archive.ph/wip/md6Af>
+RES := $()## list of any additional required (common/shared) resources (space-separated)
+
+####
+
+makefile_path := $(lastword ${MAKEFILE_LIST})## note: must precede any makefile imports (ie, `include ...`)
+-include ${makefile_path}.config## include sibling configuration file, if exists (easier project config with a stable base Makefile)
 
 ####
 
@@ -84,14 +87,16 @@ ifneq (${MAKE_VERSION_fail},)
 $(call %error,`make` v4.0+ required (currently using v${MAKE_VERSION}))
 endif
 
-makefile_path := $(lastword ${MAKEFILE_LIST})
 makefile_abs_path := $(abspath ${makefile_path})
 makefile_dir := $(abspath $(dir ${makefile_abs_path}))
 current_dir := ${CURDIR}
+makefile_set := $(wildcard ${makefile_path} ${makefile_path}.config ${makefile_path}.target)
+makefile_set_abs := $(abspath ${makefile_set})
 
 # use ${BASEPATH} as an anchor to allow otherwise relative path specification of files
 ifneq (${makefile_dir},${current_dir})
 BASEPATH := ${makefile_dir:${current_dir}/%=%}/
+# BASEPATH := $(patsubst ./%,%,${makefile_dir:${current_dir}/%=%}/)
 endif
 
 #### Start of system configuration section. ####
@@ -197,6 +202,8 @@ LIBS := $(foreach lib,${LIBS},-l${lib})
 # # CFLAGS_dynamic := -fpie
 # # LDFLAGS_dynamic := -fpie
 # endif
+
+RUNNER_i586-pc-msdosdjgpp-gcc := MSDOS-run
 endif ## `clang` or `gcc`
 OUT_obj_filesets := ${OUT_obj_filesets} $() *.o *.d## `clang`/`gcc` intermediate files
 
@@ -419,7 +426,9 @@ SPACE := $() $()
 %as_nix_path = $(subst \,/,${1})
 %as_win_path = $(subst /,\,${1})
 
-%dirs_in = $(patsubst ./%,%,$(dir $(wildcard ${1:=/*/.})))
+%strip_leading_cwd = $(patsubst ./%,%,${1})# %strip_leading_cwd(list) == normalize paths; strip any leading './'
+
+%dirs_in = $(dir $(wildcard ${1:=/*/.}))
 %filename = $(notdir ${1})
 %filename_base = $(basename $(notdir ${1}))
 %filename_ext = $(suffix ${1})
@@ -594,6 +603,8 @@ $(call %debug_var,makefile_abs_path)
 $(call %debug_var,makefile_dir)
 $(call %debug_var,current_dir)
 $(call %debug_var,make_invoke_alias)
+$(call %debug_var,makefile_set)
+$(call %debug_var,makefile_set_abs)
 $(call %debug_var,BASEPATH)
 
 ####
@@ -617,6 +628,7 @@ FIND       := "${SystemRoot}\System32\find"
 FINDSTR    := "${SystemRoot}\System32\findstr"
 MORE       := "${SystemRoot}\System32\more"
 SORT       := "${SystemRoot}\System32\sort"
+TYPE       := type
 WHICH      := where
 #
 ECHO_newline := echo.
@@ -656,20 +668,6 @@ STRIP := $(or ${STRIP_CC_${CC}},${STRIP})
 # * and... ${STRIP} available? (missing in some distributions)
 STRIP := $(shell "${STRIP}" ${STRIP_check_flags} >${devnull} 2>&1 && echo ${STRIP})
 $(call %debug_var,STRIP)
-
-####
-
-makefile_path := $(lastword ${MAKEFILE_LIST})
-makefile_abs_path := $(abspath ${makefile_path})
-makefile_dir := $(abspath $(dir ${makefile_abs_path}))
-current_dir := ${CURDIR}
-make_invoke_alias ?= $(if $(call %eq,Makefile,${makefile_path}),make,make -f "${makefile_path}")
-
-$(call %debug_var,makefile_path)
-$(call %debug_var,makefile_abs_path)
-$(call %debug_var,makefile_dir)
-$(call %debug_var,current_dir)
-$(call %debug_var,current_dir)
 
 ####
 
@@ -847,6 +845,10 @@ $(call %debug_var,RCFLAGS)
 
 ####
 
+RUNNER := ${RUNNER_${CC}}
+
+####
+
 # note: work within ${BASEPATH} (build directories may not yet be created)
 # note: set LIB as `make` doesn't export the LIB change into `$(shell ...)` invocations
 test_file_stem := $(subst ${SPACE},_,${BASEPATH}__MAKE__${CC}_${ARCH}_${TARGET}_test__)
@@ -887,12 +889,14 @@ has_run_first := $(findstring run,$(firstword ${MAKECMDGOALS}))
 run_position := $(call %position,run,${MAKECMDGOALS})
 
 make_run_ARGS := $(if ${has_run_target},$(call %tail,$(wordlist ${run_position},$(call %length,${make_ARGS}),${make_ARGS})),)
+override ARGS := ${ARGS} ${make_run_ARGS}
 
 $(call %debug_var,has_run_first)
 $(call %debug_var,has_run_target)
 $(call %debug_var,run_position)
 $(call %debug_var,make_ARGS)
 $(call %debug_var,make_run_ARGS)
+$(call %debug_var,ARGS)
 
 ####
 
@@ -915,7 +919,7 @@ $(call %debug_var,OUT_DIR)
 $(call %debug_var,OUT_DIR_bin)
 $(call %debug_var,OUT_DIR_obj)
 
-# binaries (within first of ['src/bin','src/bins'] directories)
+# binaries (within first of ['${SRC_DIR}/bin','${SRC_DIR}/bins'] directories)
 ## * each source file will be compiled to a single target executable within the 'bin' output directory
 
 BIN_DIR := $(firstword $(wildcard $(foreach segment,bin bins,${SRC_DIR}/${segment})))
@@ -964,13 +968,14 @@ $(call %debug_var,OBJ_files)
 $(call %debug_var,OBJ_sup_files)
 
 DEP_files := $(wildcard $(OBJ_files:%.${O}=%.${D}))
+# DEPS := $(%strip_leading_cwd,${DEPS})
 OBJ_deps := $(strip $(or ${DEPS},$(if ${DEP_files},$(),$(filter ${BIN_deps},$(call %recursive_wildcard,${SRC_DIR},*.h *.hpp *.hxx)))))## common/shared dependencies (fallback to SRC_DIR header files)
 
 $(call %debug_var,DEP_files)
 $(call %debug_var,DEPS)
 $(call %debug_var,OBJ_deps)
 
-DEPS_common := $(strip ${makefile_abs_path} ${DEPS})
+DEPS_common := $(strip ${makefile_set_abs} ${DEPS})
 DEPS_target := $(strip ${REZ_files})
 $(call %debug_var,DEPS)
 $(call %debug_var,DEPS_common)
@@ -1033,29 +1038,41 @@ $(call %debug_var,TEST_bin_files)
 $(call %debug_var,TEST_RES_files)
 $(call %debug_var,TEST_REZ_files)
 
+# $(call %debug,${OBJ_files} ${OBJ_sup_files} ${BIN_OBJ_files} ${BIN_OBJ_sup_files} ${EG_OBJ_files} ${EG_OBJ_sup_files} ${TEST_OBJ_files} ${TEST_OBJ_sup_files} ${BIN_REZ_files} ${EG_REZ_files} ${TEST_REZ_files} ${REZ_files})
+# $(call %debug,$(dir ${OBJ_files} ${OBJ_sup_files} ${BIN_OBJ_files} ${BIN_OBJ_sup_files} ${EG_OBJ_files} ${EG_OBJ_sup_files} ${TEST_OBJ_files} ${TEST_OBJ_sup_files} ${BIN_REZ_files} ${EG_REZ_files} ${TEST_REZ_files} ${REZ_files}))
+
 out_dirs := $(strip $(call %uniq,${OUT_DIR} ${OUT_DIR_bin} ${BIN_OUT_DIR_bin} ${EG_OUT_DIR_bin} ${TEST_OUT_DIR_bin} ${OUT_DIR_obj} $(patsubst %/,%,$(dir ${OBJ_files} ${OBJ_sup_files} ${BIN_OBJ_files} ${BIN_OBJ_sup_files} ${EG_OBJ_files} ${EG_OBJ_sup_files} ${TEST_OBJ_files} ${TEST_OBJ_sup_files} ${BIN_REZ_files} ${EG_REZ_files} ${TEST_REZ_files} ${REZ_files}))))
 out_dirs_for_rules := $(strip $(call %tr,${DOLLAR} ${HASH},${DOLLAR}${DOLLAR} ${BACKSLASH}${HASH},${out_dirs}))
 
 $(call %debug_var,out_dirs)
 $(call %debug_var,out_dirs_for_rules)
 
-PROJECT_TARGET := ${OUT_DIR_bin}/${NAME}${EXEEXT}
-
-$(call %debug_var,PROJECT_TARGET)
-
 ####
+
+DEFAULT_TARGET := ${OUT_DIR_bin}/${NAME}${EXEEXT}
+PROJECT_TARGET := ${OUT_DIR_bin}/${NAME}${EXEEXT}
 
 .DEFAULT_GOAL := $(if ${SRC_files},${PROJECT_TARGET},$(firstword ${BIN_bin_files}))# *default* target
 
+$(call %debug_var,PROJECT_TARGET)
 $(call %debug_var,.DEFAULT_GOAL)
+
+####
+
+# include sibling target(s) file (if/when sibling file exists; provides easy project customization upon a stable base Makefile)
+-include ${makefile_path}.target
+
+# include automated dependencies (if/when the depfiles exist)
+# ref: [Makefile automated header deps](https://stackoverflow.com/questions/2394609/makefile-header-dependencies) @@ <https://archive.is/uUux4>
+-include ${DEP_files}
 
 ####
 all_phony_targets := $()
 
 .PHONY: run
 all_phony_targets := ${all_phony_targets} run
-run: ${.DEFAULT_GOAL} ## Build/execute project executable (for ARGS, use `... run -- [ARGS]`)
-	@$(call %shell_quote,$^) ${make_run_ARGS}
+run: ${.DEFAULT_GOAL} ## Build/execute project executable (for ARGS, use `-- [ARGS]` or `ARGS="..."`)
+	@$(strip ${RUNNER} $(call %shell_quote,$^)) ${ARGS}
 
 ####
 ifeq (${false},${has_run_first})## define standard phony targets only when 'run' is not the first target (all text following 'run' is assumed to be arguments for the run; minimizes recipe duplication/overwrite warnings)
@@ -1093,9 +1110,9 @@ endif
 	@${ECHO} $(call %shell_escape,MAKE_TARGETs:)
 	@${ECHO_newline}
 ifeq (${OSID},win)
-	@${FINDSTR} "^[a-zA-Z-]*:.*${HASH}${HASH}" "${makefile_path}" | ${shell_filter_targets} | ${SORT} | for /f "tokens=1-2,* delims=:${HASH}" %%g in ('${MORE}') do @(@call set "t=%%g                " & @call echo ${color_success}%%t:~0,15%%${color_reset} ${color_info}%%i${color_reset})
+	@${TYPE} $(call %map,%shell_quote,${makefile_set}) 2>${devnull} | ${FINDSTR} "^[a-zA-Z-]*:.*${HASH}${HASH}" | ${shell_filter_targets} | ${SORT} | for /f "tokens=1-2,* delims=:${HASH}" %%g in ('${MORE}') do @(@call set "t=%%g                " & @call echo ${color_success}%%t:~0,15%%${color_reset} ${color_info}%%i${color_reset})
 else
-	@${GREP} -P "(?i)^[[:alpha:]-]+:" "${makefile_path}" | ${shell_filter_targets} | ${SORT} | ${AWK} 'match($$0,"^([[:alpha:]]+):.*?${HASH}${HASH}\\s*(.*)$$",m){ printf "${color_success}%-10s${color_reset}\t${color_info}%s${color_reset}\n", m[1], m[2] }END{printf "\n"}'
+	@${CAT} $(call %map,%shell_quote,${makefile_set}) | ${GREP} -P "(?i)^[[:alpha:]-]+:" | ${shell_filter_targets} | ${SORT} | ${AWK} 'match($$0,"^([[:alpha:]]+):.*?${HASH}${HASH}\\s*(.*)$$",m){ printf "${color_success}%-10s${color_reset}\t${color_info}%s${color_reset}\n", m[1], m[2] }END{printf "\n"}'
 endif
 
 ####
@@ -1103,13 +1120,14 @@ endif
 .PHONY: clean
 all_phony_targets := ${all_phony_targets} clean
 clean: ## Remove build artifacts (for the active configuration, including intermediate artifacts)
-	@$(call !shell_noop,$(call %rm_dirs_verbose,$(call %map,%shell_quote,${out_dirs})))
+# * note: filter-out to avoid removing main directory
+	@$(call !shell_noop,$(call %rm_dirs_verbose,$(call %map,%shell_quote,$(filter-out ${DOT},${out_dirs}))))
 
 .PHONY: realclean
 all_phony_targets := ${all_phony_targets} realclean
 realclean: ## Remove *all* build artifacts (includes all configurations and the build directory)
 # * note: 'clean' is not needed as a dependency b/c `${BUILD_DIR}` contains *all* build and intermediate artifacts
-	@$(call !shell_noop,$(call %rm_dirs_verbose,$(call %shell_quote,${BUILD_DIR})))
+	@$(call !shell_noop,$(call %rm_dirs_verbose,$(call %shell_quote,$(filter-out ${DOT},${BUILD_DIR}))))
 
 ####
 
@@ -1142,12 +1160,6 @@ endif
 
 ####
 
-# include automated dependencies (if/when the depfiles exist)
-# ref: [Makefile automated header deps](https://stackoverflow.com/questions/2394609/makefile-header-dependencies) @@ <https://archive.is/uUux4>
--include ${DEP_files}
-
-####
-
 # ref: [`make` default rules]<https://www.gnu.org/software/make/manual/html_node/Catalogue-of-Rules.html> @@ <https://archive.is/KDNbA>
 # ref: [make ~ `eval()`](http://make.mad-scientist.net/the-eval-function) @ <https://archive.is/rpUfG>
 # * note: for pattern-based rules/targets, `%` has some special matching mechanics; ref: <https://stackoverflow.com/a/21193953> , <https://www.gnu.org/software/make/manual/html_node/Pattern-Match.html#Pattern-Match> @@ <https://archive.is/GjJ3P>
@@ -1156,10 +1168,11 @@ endif
 
 %*[makefile.run]*: %
 	@${ECHO} $(call %shell_escape,$(call %info_text,running '$<'))
-	@$(call %shell_quote,$<) ${make_run_ARGS}
+	@${ECHO} $(strip ${RUNNER_${CC}} $(call %shell_quote,$<)) ${ARGS}
 
 ####
 
+${NAME}: ${PROJECT_TARGET}
 ${PROJECT_TARGET}: ${OBJ_files} ${OBJ_sup_files} ${DEPS_common} ${DEPS_target} | ${OUT_DIR_bin}
 	$(call %link,$(call %shell_quote,$@),$(call %map,%shell_quote,${OBJ_files} ${OBJ_sup_files}),$(call %map,%shell_quote,$(call %filter_by_stem,$@,${REZ_files})),$(call %map,%shell_quote,${LIBS}))
 	$(if $(and ${STRIP},$(call %is_falsey,${DEBUG})),${STRIP} $(call %shell_quote,$@),)
@@ -1268,5 +1281,6 @@ ifeq (${true},$(call %truthy,${has_run_target}))
 ifneq (${NULL},$(if ${has_run_first},${NULL},$(filter ${all_phony_targets},${make_run_ARGS})))
 $(call %warning,`run` arguments duplicate (and overwrite) standard targets; try using run with arguments as a solo target (`${make_invoke_alias} run ARGS`))
 endif
+# $(info make_run_ARGS=:${make_run_ARGS}:)
 $(eval ${make_run_ARGS}:;@:)
 endif
