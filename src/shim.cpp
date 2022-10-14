@@ -171,7 +171,7 @@ MakeProcess(const std::wstring_p &path, const std::wstring_p &args) {
   return {std::move(processHandle), std::move(threadHandle)};
 }
 
-int main(int _argc, char *_argv[]) {
+int main(int /* argc */, char * /* argv */[]) {
   int argc;
   auto cmd = GetCommandLineW();
   auto argv = CommandLineToArgvW(cmd, &argc);
