@@ -1,0 +1,41 @@
+{
+	// ref: [MSVSC ~ 'tasks.json' docs](https://go.microsoft.com/fwlink/?LinkId=733558)
+	// note: use IntelliSense to learn about possible attributes; hover to view descriptions of existing attributes.
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "shell",
+			"label": "Build (gcc/32-bit/DEBUG)",
+			"command": "make debug CC=gcc DEBUG=1 ARCH=32 ${config:project.make_options} DEBUG_FROM=${file}",
+			"options": { "cwd": "${fileWorkspaceFolder}" },
+			"problemMatcher": ["$gcc"],
+			"group": { "kind": "build", "isDefault": true }
+		},
+		{
+			"type": "shell",
+			"label": "Build (gcc/64-bit/DEBUG)",
+			"command": "make debug CC=gcc DEBUG=1 ARCH=64 ${config:project.make_options} DEBUG_FROM=${file}",
+			"options": { "cwd": "${fileWorkspaceFolder}" },
+			"problemMatcher": ["$gcc"],
+			"group": { "kind": "build", "isDefault": true }
+		},
+		{ "type": "shell", "label": "Clean (realclean) project", "command": "make realclean" },
+		{
+			"type": "shell",
+			"label": "REbuild (gcc/32-bit/DEBUG)",
+			"command": "make rebuild debug CC=gcc DEBUG=1 ARCH=32 ${config:project.make_options} DEBUG_FROM=${file}",
+			"options": { "cwd": "${fileWorkspaceFolder}" },
+			"problemMatcher": ["$gcc"],
+			"group": { "kind": "build", "isDefault": true }
+		},
+		{
+			"type": "shell",
+			"label": "REbuild (gcc/64-bit/DEBUG)",
+			"command": "make rebuild debug CC=gcc DEBUG=1 ARCH=64 ${config:project.make_options} DEBUG_FROM=${file}",
+			"options": { "cwd": "${fileWorkspaceFolder}" },
+			"problemMatcher": ["$gcc"],
+			"group": { "kind": "build", "isDefault": true }
+		}
+		// { "type": "shell", "label": "DEBUG echo", "command": "echo ${fileWorkspaceFolder}" }
+	]
+}
