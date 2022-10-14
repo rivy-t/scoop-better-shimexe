@@ -1,3 +1,5 @@
 {
 	"project": { "name": "project", "build_dir": "#build", "make_options": "CC_DEFINES=1" },
+	"clangd.fallbackFlags": ["-std=c++17"],
+	"clang-tidy.compilerArgs": ["-std=c++17"]
 }
